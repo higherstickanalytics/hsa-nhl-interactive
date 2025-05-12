@@ -1,8 +1,6 @@
 streamlit
 pandas
 numpy
-matplotlib.pyplot
-matplotlib.dates
-threading
-statsmodels.api
-OneHotEncodery
+matplotlib
+statsmodels
+scikit-learn
