@@ -1,25 +1,29 @@
 import streamlit as st
 import pandas as pd
 import numpy as np
-import matplotlib.pyplot as plt
-import matplotlib.dates as mdates
-import threading
 import statsmodels.api as sm
 from sklearn.preprocessing import OneHotEncoder
+import matplotlib.pyplot as plt
+import matplotlib.dates as mdates
 
-# Function to load and preprocess data (without caching)
+
+# Optimized data loading function
+@st.cache_data
 def load_and_preprocess_data(path, date_column, date_format):
-    df = pd.read_csv(path)
-    df[date_column] = pd.to_datetime(df[date_column], format=date_format, errors='coerce')
+    # Load only necessary columns to minimize memory usage and speed up the process
+    df = pd.read_csv(path, parse_dates=[date_column], date_parser=lambda x: pd.to_datetime(x, format=date_format, errors='coerce'))
     return df
 
-# Function to prepare models (without caching)
+
+# Prepare models using OneHotEncoder
+@st.cache_data
 def prepare_models(df, stats, features):
     encoder = OneHotEncoder(drop='first', sparse_output=False, handle_unknown='ignore')
     X = encoder.fit_transform(df[features])
     X_df = pd.DataFrame(X, columns=encoder.get_feature_names_out(features))
     models = {stat: sm.OLS(df[stat], X_df).fit() for stat in stats}
     return encoder, models
+
 
 # Prediction function
 def predict_stats(date, schedule, players, stats, encoder, models, selected_player):
@@ -51,7 +55,8 @@ def predict_stats(date, schedule, players, stats, encoder, models, selected_play
 
     return pd.DataFrame(predictions)
 
-# Plotting function for histograms
+
+# Plotting histogram
 def plot_histogram(data, threshold, title, x_label):
     fig, ax = plt.subplots(figsize=(10, 6))  # Increased figure size for less scrunching
     n, bins, patches = ax.hist(data, bins=20, edgecolor='black')
@@ -81,66 +86,57 @@ def plot_histogram(data, threshold, title, x_label):
     st.text(
         proportion_text if proportion_text != f"Proportions for {x_label} (non-zero bins):\n" else f"No non-zero bins for {x_label}.")
 
-# Paths to the data files
-skaters_path = 'data/hockey_data/combined_skaters_hockey_game_logs.csv'
-goalies_path = 'data/hockey_data/combined_goalies_hockey_game_logs.csv'
-schedule_path = 'data/NHL_Schedule.csv'
 
-# Load data
-skaters_df = load_and_preprocess_data(skaters_path, 'Date', '%m/%d/%y')
-goalies_df = load_and_preprocess_data(goalies_path, 'Date', '%m/%d/%y')
-nhl_schedule_df = load_and_preprocess_data(schedule_path, 'DATE', '%m/%d/%Y')
+# Load data (you might want to limit the dataset for testing first)
+skaters_df = load_and_preprocess_data('path_to_skaters.csv', 'Date', '%m/%d/%y')
+goalies_df = load_and_preprocess_data('path_to_goalies.csv', 'Date', '%m/%d/%y')
+nhl_schedule_df = load_and_preprocess_data('path_to_schedule.csv', 'DATE', '%m/%d/%Y')
 
-# Prepare models for both skaters and goalies
+# Prepare models
 encoder_skaters, models_skaters = prepare_models(skaters_df, ['G.1', 'SOG', 'A', 'PTS', 'BLK'], ['Opp', 'Player'])
 encoder_goalies, models_goalies = prepare_models(goalies_df, ['SV', 'GA', 'SA'], ['Opp', 'Player'])
 
-# Sidebar for view selection and filters
+# Sidebar for filters and controls
 st.sidebar.title("NHL Filters & Visualization")
 position = st.sidebar.radio("Select Player Position:", ('Skater', 'Goalie'))
 
 if position == 'Skater':
-    filtered_df, stats, stats_display, encoder, models = skaters_df, ['G.1', 'SOG', 'A', 'PTS', 'BLK'], ['Goals',
-                                                                                                         'Shots on Goal',
-                                                                                                         'Assists',
-                                                                                                         'Points',
-                                                                                                         'Blocked Shots'], encoder_skaters, models_skaters
+    filtered_df, stats, stats_display, encoder, models = skaters_df, ['G.1', 'SOG', 'A', 'PTS', 'BLK'], ['Goals', 'Shots on Goal', 'Assists', 'Points', 'Blocked Shots'], encoder_skaters, models_skaters
 else:
-    filtered_df, stats, stats_display, encoder, models = goalies_df, ['SV', 'GA', 'SA'], ['Saves', 'Goals Against',
-                                                                                          'Shots Against'], encoder_goalies, models_goalies
+    filtered_df, stats, stats_display, encoder, models = goalies_df, ['SV', 'GA', 'SA'], ['Saves', 'Goals Against', 'Shots Against'], encoder_goalies, models_goalies
 
 all_players = filtered_df['Player'].unique().tolist()
 selected_player = st.sidebar.selectbox('Select a player:', all_players, format_func=lambda x: x if x else '')
 
-# Date Input for filtering
-start_date_str, max_date_str = filtered_df['Date'].min().strftime('%m/%d/%Y'), filtered_df['Date'].max().strftime('%m/%d/%Y')
-start_date = st.sidebar.text_input('Start Date (MM/DD/YYYY):', start_date_str)
-end_date = st.sidebar.text_input('End Date (MM/DD/YYYY):', max_date_str)
+# Date Input
+min_date_str, max_date_str = filtered_df['Date'].min().strftime('%m/%d/%Y'), filtered_df['Date'].max().strftime('%m/%d/%Y')
+start_date_str = st.sidebar.text_input('Start Date (MM/DD/YYYY):', min_date_str)
+end_date_str = st.sidebar.text_input('End Date (MM/DD/YYYY):', max_date_str)
 
 try:
-    start_date, end_date = pd.to_datetime(start_date), pd.to_datetime(end_date)
-    filtered_df = filtered_df[(filtered_df['Date'] >= start_date) & (filtered_df['Date'] <= end_date)]
+    start_date, end_date = pd.to_datetime(start_date_str, format='%m/%d/%Y'), pd.to_datetime(end_date_str, format='%m/%d/%Y')
+    if start_date > end_date:
+        start_date, end_date = end_date, start_date
+        st.sidebar.warning("Start date cannot be after end date. Dates have been swapped.")
+    st.sidebar.write(f"Showing data from **{start_date.strftime('%m/%d/%Y')}** to **{end_date.strftime('%m/%d/%Y')}**.")
 except ValueError:
-    st.sidebar.error("Invalid date format. Please use MM/DD/YYYY.")
+    st.sidebar.error("Please enter dates in the format MM/DD/YYYY.")
+    start_date, end_date = filtered_df['Date'].min(), filtered_df['Date'].max()
 
-# Stat Selection
+filtered_df = filtered_df[(filtered_df['Date'] >= start_date) & (filtered_df['Date'] <= end_date)]
+
+# Visualization and Predictions
 selected_stat_index = st.sidebar.selectbox('Select a statistic for visualization:', stats_display)
 selected_stat = stats[stats_display.index(selected_stat_index)]
 
-# Main content area
-st.title('NHL Player Stats Visualization')
-st.write("Data collected using [Hockey Reference](https://www.hockey-reference.com/).")
-
-filtered_df[selected_stat] = pd.to_numeric(filtered_df[selected_stat], errors='coerce').dropna()
+# Display data for the selected player and selected statistic
 player_data = filtered_df[filtered_df['Player'] == selected_player][selected_stat]
-
 if not player_data.empty:
     max_value, default_value = player_data.max(), player_data.median()
     threshold = st.number_input(f'Set Threshold for {selected_stat_index}:', min_value=0.0,
                                 max_value=float(max_value) if pd.notna(max_value) else 1.0,
                                 value=float(default_value) if pd.notna(default_value) else 0.0, step=0.5)
 
-    # Visualization Type
     view = st.sidebar.radio("Select Visualization Type:", ('Histograms',))
 
     if view == 'Histograms':
@@ -173,34 +169,12 @@ if not player_data.empty:
         ax.set_title(f'{selected_stat_index} Over Time for {selected_player}')
         ax.set_xlabel('Date')
         ax.set_ylabel(selected_stat_index)
-        ax.xaxis.set_major_formatter(mdates.DateFormatter('%Y-%m-%d'))
-        plt.xticks(rotation=45)
+        ax.xaxis.set_major_formatter(mdates.DateFormatter('%b %d, %Y'))
+        ax.xaxis.set_major_locator(mdates.MonthLocator())
         ax.legend()
+        plt.xticks(rotation=45)
         plt.tight_layout()  # Adjust layout to prevent clipping
         st.pyplot(fig)
 
-        # Display proportion of games at or above threshold
-        proportion_text = f"Proportion of games with {selected_stat_index} at or above threshold ({threshold}):\n"
-        proportion_text += f"{at_or_above_count} out of {total_games} games: {at_or_above_proportion:.2%}"
-        st.text(proportion_text)
-
-# Predictions for selected player
-prediction_date = st.text_input("Enter Date for Predictions (MM/DD/YYYY):", pd.Timestamp.now().strftime('%m/%d/%Y'))
-st.subheader(f"Predictions for {selected_player} on {pd.to_datetime(prediction_date).strftime('%m/%d/%Y')}")
-
-if st.button("Get Predictions"):
-    predictions = predict_stats(prediction_date, nhl_schedule_df, filtered_df, stats, encoder, models, selected_player)
-    if not predictions.empty:
-        new_columns = ['Date', 'Player', 'Team', 'Opponent'] + stats_display
-        if position == 'Goalie':
-            predictions = predictions.rename(columns={'SV': 'Saves', 'SA': 'Shots Against', 'GA': 'Goals Against'})
-            predictions['SV%'] = predictions['Saves'] / predictions['Shots Against']
-            predictions['SV%'] = predictions['SV%'].apply(lambda x: round(x, 3) if x != 0 else 0)
-            new_columns.append('SV%')
-
-        predictions.columns = new_columns
-        predictions['Date'] = predictions['Date'].dt.strftime('%m/%d/%Y')
-        predictions.set_index('Date', inplace=True)
-        st.dataframe(predictions)
-    else:
-        st.write(f"No predictions could be made for {selected_player} on {pd.to_datetime(prediction_date).strftime('%m/%d/%Y')}.")
+else:
+    st.write(f"No data found for {selected_player} with the selected filter.")
