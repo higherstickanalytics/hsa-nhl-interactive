@@ -86,14 +86,17 @@ def plot_histogram(data, threshold, title, x_label):
 
 # Load data
 skaters_df = load_and_preprocess_data(
-    'C:/Users/nickk/OneDrive - Bentley University/Fall 2024/CS 230 - Introduction to Programming with Python/pythonProject/Sports Analytics/hockey data/hockey_data/combined_skaters_hockey_game_logs.csv',
+    'data/hockey_data/combined_skaters_hockey_game_logs.csv',
     'Date', '%m/%d/%y')
+
 goalies_df = load_and_preprocess_data(
-    'C:/Users/nickk/OneDrive - Bentley University/Fall 2024/CS 230 - Introduction to Programming with Python/pythonProject/Sports Analytics/hockey data/hockey_data/combined_goalies_hockey_game_logs.csv',
+    'data/hockey_data/combined_goalies_hockey_game_logs.csv',
     'Date', '%m/%d/%y')
+
 nhl_schedule_df = load_and_preprocess_data(
-    'C:/Users/nickk/OneDrive - Bentley University/Fall 2024/CS 230 - Introduction to Programming with Python/pythonProject/Sports Analytics/hockey data/NHL_Schedule.csv',
+    'data/NHL_Schedule.csv',
     'DATE', '%m/%d/%Y')
+
 
 # Prepare models
 encoder_skaters, models_skaters = prepare_models(skaters_df, ['G.1', 'SOG', 'A', 'PTS', 'BLK'], ['Opp', 'Player'])
