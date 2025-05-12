@@ -88,9 +88,9 @@ def plot_histogram(data, threshold, title, x_label):
 
 
 # Load data (you might want to limit the dataset for testing first)
-skaters_df = load_and_preprocess_data('path_to_skaters.csv', 'Date', '%m/%d/%y')
-goalies_df = load_and_preprocess_data('path_to_goalies.csv', 'Date', '%m/%d/%y')
-nhl_schedule_df = load_and_preprocess_data('path_to_schedule.csv', 'DATE', '%m/%d/%Y')
+skaters_df = load_and_preprocess_data('data/skaters.csv', 'Date', '%m/%d/%y')
+goalies_df = load_and_preprocess_data('data/goalies.csv', 'Date', '%m/%d/%y')
+nhl_schedule_df = load_and_preprocess_data('data/schedule.csv', 'DATE', '%m/%d/%Y')
 
 # Prepare models
 encoder_skaters, models_skaters = prepare_models(skaters_df, ['G.1', 'SOG', 'A', 'PTS', 'BLK'], ['Opp', 'Player'])
