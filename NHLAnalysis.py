@@ -85,13 +85,13 @@ ax1.axis('equal')
 ax1.set_title(f"{selected_stat_display} Value Distribution")
 st.pyplot(fig1)
 
-# Display color category percentages
+# Display color category percentages with dynamic threshold and stat name
 total_entries = sum(color_categories.values())
 if total_entries > 0:
     st.markdown("**Pie Chart Color Breakdown:**")
-    st.write(f"🟩 Green (Above Threshold): {color_categories['green']} / {total_entries} ({color_categories['green'] / total_entries:.2%})")
-    st.write(f"🟥 Red (Below Threshold): {color_categories['red']} / {total_entries} ({color_categories['red'] / total_entries:.2%})")
-    st.write(f"⬜ Gray (At Threshold): {color_categories['gray']} / {total_entries} ({color_categories['gray'] / total_entries:.2%})")
+    st.write(f"🟩 Green (Above {threshold} {selected_stat_display}): {color_categories['green']} / {total_entries} ({color_categories['green'] / total_entries:.2%})")
+    st.write(f"🟥 Red (Below {threshold} {selected_stat_display}): {color_categories['red']} / {total_entries} ({color_categories['red'] / total_entries:.2%})")
+    st.write(f"⬜ Gray (At {threshold} {selected_stat_display}): {color_categories['gray']} / {total_entries} ({color_categories['gray'] / total_entries:.2%})")
 else:
     st.write("No data available to display pie chart.")
 
