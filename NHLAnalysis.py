@@ -85,13 +85,26 @@ ax1.axis('equal')
 ax1.set_title(f"{selected_stat_display} Value Distribution")
 st.pyplot(fig1)
 
-# Display color category percentages with dynamic threshold and stat name
+# Display color category percentages in a cleaner table format
 total_entries = sum(color_categories.values())
 if total_entries > 0:
     st.markdown("**Pie Chart Color Breakdown:**")
-    st.write(f"🟩 Green (Above {threshold} {selected_stat_display}): {color_categories['green']} / {total_entries} ({color_categories['green'] / total_entries:.2%})")
-    st.write(f"🟥 Red (Below {threshold} {selected_stat_display}): {color_categories['red']} / {total_entries} ({color_categories['red'] / total_entries:.2%})")
-    st.write(f"⬜ Gray (At {threshold} {selected_stat_display}): {color_categories['gray']} / {total_entries} ({color_categories['gray'] / total_entries:.2%})")
+    breakdown_data = {
+        'Color': ['🟩 Green', '🟥 Red', '⬜ Gray'],
+        'Category': [
+            f"Above {threshold} {selected_stat_display}",
+            f"Below {threshold} {selected_stat_display}",
+            f"At {threshold} {selected_stat_display}"
+        ],
+        'Count': [color_categories['green'], color_categories['red'], color_categories['gray']],
+        'Percentage': [
+            f"{color_categories['green'] / total_entries:.2%}",
+            f"{color_categories['red'] / total_entries:.2%}",
+            f"{color_categories['gray'] / total_entries:.2%}"
+        ]
+    }
+    breakdown_df = pd.DataFrame(breakdown_data)
+    st.table(breakdown_df)
 else:
     st.write("No data available to display pie chart.")
 
