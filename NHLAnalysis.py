@@ -81,6 +81,11 @@ wedges, texts, autotexts = ax1.pie(
     colors=colors,
     textprops={'fontsize': 10}
 )
+
+# Adjust the position of percentages to be on the edge of the crust
+for autotext in autotexts:
+    autotext.set_position(autotext.get_position() * 1.2)  # Move percentages outward
+
 ax1.axis('equal')
 ax1.set_title(f"{selected_stat_display} Value Distribution")
 st.pyplot(fig1)
