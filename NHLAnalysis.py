@@ -1,4 +1,3 @@
-import streamlit as st
 import pandas as pd
 import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
@@ -73,10 +72,10 @@ for val, count in zip(stat_counts.index, stat_counts.values):
         color_categories['gray'] += count
 
 fig1, ax1 = plt.subplots()
-# Removed autopct argument to remove percentages from the pie chart
-wedges, texts = ax1.pie(
+wedges, texts, autotexts = ax1.pie(
     sizes,
     labels=labels,
+    autopct='%1.1f%%',
     startangle=140,
     colors=colors,
     textprops={'fontsize': 10}
@@ -85,17 +84,26 @@ ax1.axis('equal')
 ax1.set_title(f"{selected_stat_display} Value Distribution")
 st.pyplot(fig1)
 
-# Create table for the percentage breakdown of each slice
-total_entries = sum(sizes)
+# Display color category percentages in a cleaner table format
+total_entries = sum(color_categories.values())
 if total_entries > 0:
-    percentage_data = {
-        'Label': labels,
-        'Count': sizes,
-        'Percentage': [f"{(size / total_entries) * 100:.2f}%" for size in sizes]
+    st.markdown("**Pie Chart Color Breakdown:**")
+    breakdown_data = {
+        'Color': ['🟩 Green', '🟥 Red', '⬜ Gray'],
+        'Category': [
+            f"Above {threshold} {selected_stat_display}",
+            f"Below {threshold} {selected_stat_display}",
+            f"At {threshold} {selected_stat_display}"
+        ],
+        'Count': [color_categories['green'], color_categories['red'], color_categories['gray']],
+        'Percentage': [
+            f"{color_categories['green'] / total_entries:.2%}",
+            f"{color_categories['red'] / total_entries:.2%}",
+            f"{color_categories['gray'] / total_entries:.2%}"
+        ]
     }
-    percentage_df = pd.DataFrame(percentage_data)
-    st.markdown("**Pie Chart Percentage Breakdown:**")
-    st.table(percentage_df)
+    breakdown_df = pd.DataFrame(breakdown_data)
+    st.table(breakdown_df)
 else:
     st.write("No data available to display pie chart.")
 
