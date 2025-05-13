@@ -3,125 +3,102 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
 
-# ---------- CACHED DATA LOAD ----------
-@st.cache_data
-def load_data(path, date_column=None, date_format=None):
-    df = pd.read_csv(path)
-    if date_column and date_format:
-        df[date_column] = pd.to_datetime(df[date_column], format=date_format, errors='coerce')
-    return df
-
-# ---------- PLOTTING ----------
-def plot_histogram(data, threshold, title, x_label):
-    fig, ax = plt.subplots(figsize=(10, 6))
-    n, bins, patches = ax.hist(data, bins=20, edgecolor='black')
-    total = sum(n)
-    proportions = n / total if total else [0] * len(n)
-
-    for patch, left, right in zip(patches, bins[:-1], bins[1:]):
-        mean = (left + right) / 2
-        patch.set_facecolor('green' if mean > threshold else 'red' if mean < threshold else 'grey')
-
-    ax.set_title(title)
-    ax.set_xlabel(x_label)
-    ax.set_ylabel('Frequency')
-    st.pyplot(fig)
-
-    st.text(f"Proportions for {x_label}:\n" + "\n".join(
-        [f"{round((l + r) / 2)}: {p:.2%}" for p, l, r in zip(proportions, bins[:-1], bins[1:]) if p > 0]
-    ))
-
-def plot_time_series(df, date_col, stat_col, threshold, player):
-    fig, ax = plt.subplots(figsize=(14, 6))
-    bars = ax.bar(df[date_col], df[stat_col], color='grey', edgecolor='black')
-
-    count = 0
-    for bar, value in zip(bars, df[stat_col]):
-        if value >= threshold:
-            bar.set_color('green')
-            count += 1
-        else:
-            bar.set_color('red')
-
-    total = len(df)
-    ax.axhline(y=threshold, color='blue', linestyle='--', label=f'Threshold: {threshold}')
-    ax.set_title(f'{stat_col} Over Time for {player}')
-    ax.set_xlabel('Date')
-    ax.set_ylabel(stat_col)
-    ax.xaxis.set_major_formatter(mdates.DateFormatter('%Y-%m-%d'))
-    plt.xticks(rotation=45)
-    ax.legend()
-    plt.tight_layout()
-    st.pyplot(fig)
-    st.text(f"{count}/{total} games at or above threshold: {count / total:.2%}")
-
-# ---------- DATA LOADING ----------
+# Load data
 skaters_path = 'data/hockey_data/combined_skaters_hockey_game_logs.csv'
 goalies_path = 'data/hockey_data/combined_goalies_hockey_game_logs.csv'
 schedule_path = 'data/NHL_Schedule.csv'
 
-skaters_df = load_data(skaters_path, 'Date', '%m/%d/%y')
-goalies_df = load_data(goalies_path, 'Date', '%m/%d/%y')
-schedule_df = load_data(schedule_path, 'DATE', '%m/%d/%Y')
+skaters_df = pd.read_csv(skaters_path, parse_dates=['Date'], dayfirst=False)
+goalies_df = pd.read_csv(goalies_path, parse_dates=['Date'], dayfirst=False)
 
-# ---------- UI ----------
-st.title("NHL Player Stats Viewer")
-st.write("All data from [Hockey Reference](https://www.hockey-reference.com/).")
+# App Title
+st.title("Hockey Data Viewer with Histograms")
+st.write("Data from [Hockey Reference](https://www.hockey-reference.com/)")
 
-# Sidebar filters
-st.sidebar.title("Filters")
-position = st.sidebar.radio("Player Type:", ['Skater', 'Goalie'])
+# Sidebar: select position
+position = st.sidebar.radio("Select Player Position", ['Skater', 'Goalie'])
 
 if position == 'Skater':
     df = skaters_df
-    stat_options = ['G.1', 'SOG', 'A', 'PTS', 'BLK']
-    stat_labels = ['Goals', 'Shots on Goal', 'Assists', 'Points', 'Blocked Shots']
+    stats = ['G.1', 'SOG', 'A', 'PTS', 'BLK']
+    stat_names = ['Goals', 'Shots on Goal', 'Assists', 'Points', 'Blocked Shots']
 else:
     df = goalies_df
-    stat_options = ['SV', 'GA', 'SA']
-    stat_labels = ['Saves', 'Goals Against', 'Shots Against']
+    stats = ['SV', 'GA', 'SA']
+    stat_names = ['Saves', 'Goals Against', 'Shots Against']
 
-player_list = df['Player'].dropna().unique()
-selected_player = st.sidebar.selectbox("Select Player", sorted(player_list))
+# Sidebar: player and stat selection
+player_list = df['Player'].dropna().unique().tolist()
+selected_player = st.sidebar.selectbox("Select a player:", sorted(player_list))
+selected_stat_display = st.sidebar.selectbox("Select a statistic:", stat_names)
+selected_stat = stats[stat_names.index(selected_stat_display)]
 
+# Sidebar: date filter
 min_date = df['Date'].min()
 max_date = df['Date'].max()
-start = st.sidebar.text_input("Start Date (MM/DD/YYYY):", min_date.strftime('%m/%d/%Y'))
-end = st.sidebar.text_input("End Date (MM/DD/YYYY):", max_date.strftime('%m/%d/%Y'))
 
-try:
-    start_dt = pd.to_datetime(start, format='%m/%d/%Y')
-    end_dt = pd.to_datetime(end, format='%m/%d/%Y')
-    if start_dt > end_dt:
-        start_dt, end_dt = end_dt, start_dt
-except:
-    st.sidebar.error("Please enter dates in MM/DD/YYYY format.")
-    start_dt, end_dt = min_date, max_date
+start_date = pd.to_datetime(st.sidebar.date_input("Start Date", min_value=min_date, value=min_date))
+end_date = pd.to_datetime(st.sidebar.date_input("End Date", max_value=max_date, value=max_date))
 
-filtered_df = df[(df['Date'] >= start_dt) & (df['Date'] <= end_dt)]
-filtered_df = filtered_df[filtered_df['Player'] == selected_player]
+# Filter data
+df['Date'] = pd.to_datetime(df['Date'], errors='coerce')
+df = df[(df['Date'] >= start_date) & (df['Date'] <= end_date)]
+player_df = df[df['Player'] == selected_player]
+player_df[selected_stat] = pd.to_numeric(player_df[selected_stat], errors='coerce').dropna()
 
-# Select stat
-selected_label = st.sidebar.selectbox("Select Stat", stat_labels)
-stat_col = stat_options[stat_labels.index(selected_label)]
+# Histogram threshold
+max_val = player_df[selected_stat].max()
+default_thresh = player_df[selected_stat].median()
+threshold = st.sidebar.number_input("Set Threshold", min_value=0.0, max_value=float(max_val), value=float(default_thresh), step=0.5)
 
-# Convert and filter stat values
-filtered_df[stat_col] = pd.to_numeric(filtered_df[stat_col], errors='coerce')
-stat_data = filtered_df[['Date', stat_col]].dropna()
+# Distribution Histogram
+st.subheader(f"{selected_stat_display} Distribution for {selected_player}")
+fig1, ax1 = plt.subplots()
+n, bins, patches = ax1.hist(player_df[selected_stat], bins=20, edgecolor='black')
 
-if stat_data.empty:
-    st.warning("No data available for selected player and date range.")
-else:
-    threshold = st.number_input(f"Set threshold for {selected_label}", min_value=0.0,
-                                max_value=float(stat_data[stat_col].max()), 
-                                value=float(stat_data[stat_col].median()), step=0.5)
-
-    # Visualization selection
-    view = st.sidebar.radio("Visualization Type:", ['Histogram', 'Time Series'])
-
-    st.subheader(f"{selected_label} for {selected_player}")
-
-    if view == 'Histogram':
-        plot_histogram(stat_data[stat_col], threshold, f"{selected_label} Distribution", selected_label)
+for patch, left, right in zip(patches, bins[:-1], bins[1:]):
+    center = (left + right) / 2
+    if center > threshold:
+        patch.set_facecolor('green')
+    elif center < threshold:
+        patch.set_facecolor('red')
     else:
-        plot_time_series(stat_data, 'Date', stat_col, threshold, selected_player)
+        patch.set_facecolor('gray')
+
+ax1.set_title(f"{selected_stat_display} Distribution")
+ax1.set_xlabel(selected_stat_display)
+ax1.set_ylabel("Frequency")
+st.pyplot(fig1)
+
+# Time-Series Histogram
+st.subheader(f"{selected_stat_display} Over Time for {selected_player}")
+fig2, ax2 = plt.subplots(figsize=(12, 6))
+data = player_df[['Date', selected_stat]].dropna()
+bars = ax2.bar(data['Date'], data[selected_stat], color='gray', edgecolor='black')
+
+count_above = 0
+for bar, val in zip(bars, data[selected_stat]):
+    if val > threshold:
+        bar.set_color('green')
+        count_above += 1
+    elif val < threshold:
+        bar.set_color('red')
+    else:
+        bar.set_color('gray')
+        count_above += 1
+
+ax2.axhline(y=threshold, color='blue', linestyle='--', linewidth=2, label=f'Threshold: {threshold}')
+ax2.set_xlabel("Date")
+ax2.set_ylabel(selected_stat_display)
+ax2.set_title(f"{selected_stat_display} Over Time")
+ax2.xaxis.set_major_formatter(mdates.DateFormatter('%Y-%m-%d'))
+plt.xticks(rotation=45)
+ax2.legend()
+st.pyplot(fig2)
+
+# Proportion summary
+total_games = len(data)
+if total_games > 0:
+    st.write(f"Games at or above threshold: {count_above}/{total_games} ({count_above / total_games:.2%})")
+else:
+    st.write("No data available in selected date range.")
