@@ -12,7 +12,7 @@ skaters_df = pd.read_csv(skaters_path, parse_dates=['Date'], dayfirst=False)
 goalies_df = pd.read_csv(goalies_path, parse_dates=['Date'], dayfirst=False)
 
 # App Title
-st.title("Hockey Data Viewer with Histograms")
+st.title("Hockey Data Viewer with Pie and Time-Series Charts")
 st.write("Data from [Hockey Reference](https://www.hockey-reference.com/)")
 
 # Sidebar: select position
@@ -46,31 +46,27 @@ df = df[(df['Date'] >= start_date) & (df['Date'] <= end_date)]
 player_df = df[df['Player'] == selected_player]
 player_df[selected_stat] = pd.to_numeric(player_df[selected_stat], errors='coerce').dropna()
 
-# Histogram threshold
+# Threshold input
 max_val = player_df[selected_stat].max()
 default_thresh = player_df[selected_stat].median()
 threshold = st.sidebar.number_input("Set Threshold", min_value=0.0, max_value=float(max_val), value=float(default_thresh), step=0.5)
 
-# Distribution Histogram
+# Pie Chart: Stat Distribution
 st.subheader(f"{selected_stat_display} Distribution for {selected_player}")
+
+stat_counts = player_df[selected_stat].value_counts().sort_index()
+labels = [f"{int(val)}" if val == int(val) else f"{val:.1f}" for val in stat_counts.index]
+sizes = stat_counts.values
+
 fig1, ax1 = plt.subplots()
-n, bins, patches = ax1.hist(player_df[selected_stat], bins=20, edgecolor='black')
-
-for patch, left, right in zip(patches, bins[:-1], bins[1:]):
-    center = (left + right) / 2
-    if center > threshold:
-        patch.set_facecolor('green')
-    elif center < threshold:
-        patch.set_facecolor('red')
-    else:
-        patch.set_facecolor('gray')
-
-ax1.set_title(f"{selected_stat_display} Distribution")
-ax1.set_xlabel(selected_stat_display)
-ax1.set_ylabel("Frequency")
+wedges, texts, autotexts = ax1.pie(
+    sizes, labels=labels, autopct='%1.1f%%', startangle=140, textprops={'fontsize': 10}
+)
+ax1.axis('equal')  # Equal aspect ratio ensures a perfect circle
+ax1.set_title(f"{selected_stat_display} Value Distribution")
 st.pyplot(fig1)
 
-# Time-Series Histogram
+# Time-Series Bar Chart
 st.subheader(f"{selected_stat_display} Over Time for {selected_player}")
 fig2, ax2 = plt.subplots(figsize=(12, 6))
 data = player_df[['Date', selected_stat]].dropna()
@@ -96,7 +92,7 @@ plt.xticks(rotation=45)
 ax2.legend()
 st.pyplot(fig2)
 
-# Proportion summary
+# Summary
 total_games = len(data)
 if total_games > 0:
     st.write(f"Games at or above threshold: {count_above}/{total_games} ({count_above / total_games:.2%})")
