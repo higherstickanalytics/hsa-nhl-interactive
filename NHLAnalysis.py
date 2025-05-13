@@ -1,6 +1,7 @@
 import streamlit as st
 import pandas as pd
 import matplotlib.pyplot as plt
+import matplotlib.dates as mdates
 
 # Load data
 skaters_path = 'data/hockey_data/combined_skaters_hockey_game_logs.csv'
@@ -11,7 +12,7 @@ skaters_df = pd.read_csv(skaters_path, parse_dates=['Date'], dayfirst=False)
 goalies_df = pd.read_csv(goalies_path, parse_dates=['Date'], dayfirst=False)
 
 # App Title
-st.title("Hockey Data Viewer with Pie Charts")
+st.title("Hockey Data Viewer with Pie and Time-Series Charts")
 st.write("Data from [Hockey Reference](https://www.hockey-reference.com/)")
 
 # Sidebar: select position
@@ -45,28 +46,32 @@ df = df[(df['Date'] >= start_date) & (df['Date'] <= end_date)]
 player_df = df[df['Player'] == selected_player]
 player_df[selected_stat] = pd.to_numeric(player_df[selected_stat], errors='coerce').dropna()
 
-# Threshold input
+# Histogram threshold
 max_val = player_df[selected_stat].max()
 default_thresh = player_df[selected_stat].median()
 threshold = st.sidebar.number_input("Set Threshold", min_value=0.0, max_value=float(max_val), value=float(default_thresh), step=0.5)
 
-# Pie chart for player stats
-st.subheader(f"{selected_stat_display} Value Distribution for {selected_player}")
+# Pie Chart: Stat Distribution with threshold colors
+st.subheader(f"{selected_stat_display} Distribution for {selected_player}")
 
-# Count the values above, below, and equal to the threshold
-above_threshold = player_df[player_df[selected_stat] > threshold]
-below_threshold = player_df[player_df[selected_stat] < threshold]
-equal_threshold = player_df[player_df[selected_stat] == threshold]
+stat_counts = player_df[selected_stat].value_counts().sort_index()
+labels = [f"{int(val)}" if val == int(val) else f"{val:.1f}" for val in stat_counts.index]
+sizes = stat_counts.values
 
-sizes = [len(above_threshold), len(below_threshold), len(equal_threshold)]
-labels = [
-    f"Green (Above {threshold} {selected_stat_display})",
-    f"Red (Below {threshold} {selected_stat_display})",
-    f"Gray (Equal to {threshold} {selected_stat_display})"
-]
-colors = ['green', 'red', 'gray']
+# Assign red for below threshold, green for above, gray for equal
+colors = []
+color_categories = {'green': 0, 'red': 0, 'gray': 0}
+for val, count in zip(stat_counts.index, stat_counts.values):
+    if val > threshold:
+        colors.append('green')
+        color_categories['green'] += count
+    elif val < threshold:
+        colors.append('red')
+        color_categories['red'] += count
+    else:
+        colors.append('gray')
+        color_categories['gray'] += count
 
-# Pie chart creation
 fig1, ax1 = plt.subplots()
 wedges, texts, autotexts = ax1.pie(
     sizes,
@@ -74,36 +79,64 @@ wedges, texts, autotexts = ax1.pie(
     autopct='%1.1f%%',
     startangle=140,
     colors=colors,
-    textprops={'fontsize': 10},
-    pctdistance=0.85  # Move the percentage outside the pie chart
+    textprops={'fontsize': 10}
 )
-
-# Adjust label and percentage positions
-for text in texts:
-    text.set_fontsize(10)
-for autotext in autotexts:
-    autotext.set_fontsize(10)
-    # Get the current position (coordinates)
-    x, y = autotext.get_position()
-    autotext.set_position((x * 1.1, y * 1.1))  # Move percentages outward
-
-ax1.axis('equal')  # Equal aspect ratio ensures pie chart is drawn as a circle.
+ax1.axis('equal')
 ax1.set_title(f"{selected_stat_display} Value Distribution")
 st.pyplot(fig1)
 
-# Show percentage table
-total_games = len(player_df)
-if total_games > 0:
-    green_percent = (len(above_threshold) / total_games) * 100
-    red_percent = (len(below_threshold) / total_games) * 100
-    gray_percent = (len(equal_threshold) / total_games) * 100
-
-    data = {
-        'Category': ['Above Threshold', 'Below Threshold', 'Equal to Threshold'],
-        'Count': [len(above_threshold), len(below_threshold), len(equal_threshold)],
-        'Percentage': [f"{green_percent:.2f}%", f"{red_percent:.2f}%", f"{gray_percent:.2f}%"]
+# Display color category percentages in a cleaner table format
+total_entries = sum(color_categories.values())
+if total_entries > 0:
+    st.markdown("**Pie Chart Color Breakdown:**")
+    breakdown_data = {
+        'Color': ['🟩 Green', '🟥 Red', '⬜ Gray'],
+        'Category': [
+            f"Above {threshold} {selected_stat_display}",
+            f"Below {threshold} {selected_stat_display}",
+            f"At {threshold} {selected_stat_display}"
+        ],
+        'Count': [color_categories['green'], color_categories['red'], color_categories['gray']],
+        'Percentage': [
+            f"{color_categories['green'] / total_entries:.2%}",
+            f"{color_categories['red'] / total_entries:.2%}",
+            f"{color_categories['gray'] / total_entries:.2%}"
+        ]
     }
-    df_percent = pd.DataFrame(data)
-    st.table(df_percent)
+    breakdown_df = pd.DataFrame(breakdown_data)
+    st.table(breakdown_df)
+else:
+    st.write("No data available to display pie chart.")
+
+# Time-Series Histogram
+st.subheader(f"{selected_stat_display} Over Time for {selected_player}")
+fig2, ax2 = plt.subplots(figsize=(12, 6))
+data = player_df[['Date', selected_stat]].dropna()
+bars = ax2.bar(data['Date'], data[selected_stat], color='gray', edgecolor='black')
+
+count_above = 0
+for bar, val in zip(bars, data[selected_stat]):
+    if val > threshold:
+        bar.set_color('green')
+        count_above += 1
+    elif val < threshold:
+        bar.set_color('red')
+    else:
+        bar.set_color('gray')
+        count_above += 1
+
+ax2.axhline(y=threshold, color='blue', linestyle='--', linewidth=2, label=f'Threshold: {threshold}')
+ax2.set_xlabel("Date")
+ax2.set_ylabel(selected_stat_display)
+ax2.set_title(f"{selected_stat_display} Over Time")
+ax2.xaxis.set_major_formatter(mdates.DateFormatter('%Y-%m-%d'))
+plt.xticks(rotation=45)
+ax2.legend()
+st.pyplot(fig2)
+
+# Proportion summary
+total_games = len(data)
+if total_games > 0:
+    st.write(f"Games at or above threshold: {count_above}/{total_games} ({count_above / total_games:.2%})")
 else:
     st.write("No data available in selected date range.")
