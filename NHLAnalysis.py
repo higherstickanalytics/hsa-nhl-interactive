@@ -51,16 +51,31 @@ max_val = player_df[selected_stat].max()
 default_thresh = player_df[selected_stat].median()
 threshold = st.sidebar.number_input("Set Threshold", min_value=0.0, max_value=float(max_val), value=float(default_thresh), step=0.5)
 
-# Pie Chart: Stat Distribution
+# Pie Chart: Stat Distribution with threshold colors
 st.subheader(f"{selected_stat_display} Distribution for {selected_player}")
 
 stat_counts = player_df[selected_stat].value_counts().sort_index()
 labels = [f"{int(val)}" if val == int(val) else f"{val:.1f}" for val in stat_counts.index]
 sizes = stat_counts.values
 
+# Assign red for below threshold, green for above, gray for equal
+colors = []
+for val in stat_counts.index:
+    if val > threshold:
+        colors.append('green')
+    elif val < threshold:
+        colors.append('red')
+    else:
+        colors.append('gray')
+
 fig1, ax1 = plt.subplots()
 wedges, texts, autotexts = ax1.pie(
-    sizes, labels=labels, autopct='%1.1f%%', startangle=140, textprops={'fontsize': 10}
+    sizes,
+    labels=labels,
+    autopct='%1.1f%%',
+    startangle=140,
+    colors=colors,
+    textprops={'fontsize': 10}
 )
 ax1.axis('equal')  # Equal aspect ratio ensures a perfect circle
 ax1.set_title(f"{selected_stat_display} Value Distribution")
