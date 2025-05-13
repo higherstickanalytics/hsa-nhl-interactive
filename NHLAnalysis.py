@@ -83,7 +83,9 @@ for text in texts:
     text.set_fontsize(10)
 for autotext in autotexts:
     autotext.set_fontsize(10)
-    autotext.set_position(autotext.get_position() * 1.1)  # Move percentages outward
+    # Get the current position (coordinates)
+    x, y = autotext.get_position()
+    autotext.set_position((x * 1.1, y * 1.1))  # Move percentages outward
 
 ax1.axis('equal')  # Equal aspect ratio ensures pie chart is drawn as a circle.
 ax1.set_title(f"{selected_stat_display} Value Distribution")
