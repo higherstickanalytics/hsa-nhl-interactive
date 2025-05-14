@@ -24,7 +24,7 @@ if position == 'Skater':
     stat_names = ['Goals', 'Shots on Goal', 'Assists', 'Points', 'Blocked Shots']
 else:
     df = goalies_df
-    stats = ['SV', 'GA', 'SA']
+    stats = ['SV', 'GA', 'Shots']
     stat_names = ['Saves', 'Goals Against', 'Shots Against']
 
 # Sidebar: player and stat selection
