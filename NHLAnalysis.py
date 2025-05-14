@@ -20,7 +20,7 @@ position = st.sidebar.radio("Select Player Position", ['Skater', 'Goalie'])
 
 if position == 'Skater':
     df = skaters_df
-    stats = ['G.1', 'SOG', 'A', 'PTS', 'BLK']
+    stats = ['G', 'SOG', 'A', 'PTS', 'BLK']
     stat_names = ['Goals', 'Shots on Goal', 'Assists', 'Points', 'Blocked Shots']
 else:
     df = goalies_df
