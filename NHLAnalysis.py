@@ -8,8 +8,9 @@ skaters_path = 'data/hockey_data/combined_skaters_hockey_game_logs.csv'
 goalies_path = 'data/hockey_data/combined_goalies_hockey_game_logs.csv'
 schedule_path = 'data/NHL_Schedule.csv'
 
-skaters_df = pd.read_csv(skaters_path, parse_dates=['Date'], dayfirst=False)
-goalies_df = pd.read_csv(goalies_path, parse_dates=['Date'], dayfirst=False)
+# Make sure the date column matches your CSV
+skaters_df = pd.read_csv(skaters_path, parse_dates=['gameDate'], dayfirst=False)
+goalies_df = pd.read_csv(goalies_path, parse_dates=['gameDate'], dayfirst=False)
 
 # App Title
 st.title("Hockey Data Viewer with Pie and Time-Series Charts")
@@ -28,22 +29,22 @@ else:
     stat_names = ['Saves', 'Goals Against', 'Shots Against']
 
 # Sidebar: player and stat selection
-player_list = df['Player'].dropna().unique().tolist()
+player_list = df['playerName'].dropna().unique().tolist()
 selected_player = st.sidebar.selectbox("Select a player:", sorted(player_list))
 selected_stat_display = st.sidebar.selectbox("Select a statistic:", stat_names)
 selected_stat = stats[stat_names.index(selected_stat_display)]
 
 # Sidebar: date filter
-min_date = df['Date'].min()
-max_date = df['Date'].max()
+min_date = df['gameDate'].min()
+max_date = df['gameDate'].max()
 
 start_date = pd.to_datetime(st.sidebar.date_input("Start Date", min_value=min_date, value=min_date))
 end_date = pd.to_datetime(st.sidebar.date_input("End Date", max_value=max_date, value=max_date))
 
 # Filter data
-df['Date'] = pd.to_datetime(df['Date'], errors='coerce')
-df = df[(df['Date'] >= start_date) & (df['Date'] <= end_date)]
-player_df = df[df['Player'] == selected_player]
+df['gameDate'] = pd.to_datetime(df['gameDate'], errors='coerce')
+df = df[(df['gameDate'] >= start_date) & (df['gameDate'] <= end_date)]
+player_df = df[df['playerName'] == selected_player]
 player_df[selected_stat] = pd.to_numeric(player_df[selected_stat], errors='coerce').dropna()
 
 # Histogram threshold
@@ -85,7 +86,7 @@ ax1.axis('equal')
 ax1.set_title(f"{selected_stat_display} Value Distribution")
 st.pyplot(fig1)
 
-# Display color category percentages in a cleaner table format
+# Display color category percentages in a table
 total_entries = sum(color_categories.values())
 if total_entries > 0:
     st.markdown("**Pie Chart Color Breakdown:**")
@@ -111,8 +112,8 @@ else:
 # Time-Series Histogram
 st.subheader(f"{selected_stat_display} Over Time for {selected_player}")
 fig2, ax2 = plt.subplots(figsize=(12, 6))
-data = player_df[['Date', selected_stat]].dropna()
-bars = ax2.bar(data['Date'], data[selected_stat], color='gray', edgecolor='black')
+data = player_df[['gameDate', selected_stat]].dropna()
+bars = ax2.bar(data['gameDate'], data[selected_stat], color='gray', edgecolor='black')
 
 count_above = 0
 for bar, val in zip(bars, data[selected_stat]):
