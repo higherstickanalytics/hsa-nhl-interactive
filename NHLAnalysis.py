@@ -24,8 +24,9 @@ if position == 'Skater':
     stat_names = ['Goals', 'Assists', 'Points', 'Shots', 'Plus/Minus']
 else:
     df = goalies_df
-    stats = ['shotsAgainst', 'goalsAgainst', 'savePctg']
-    stat_names = ['Shots Against', 'Goals Against', 'Save %']
+    df["Saves"] = df["savePctg"] * df["shotsAgainst"]
+    stats = ['shotsAgainst', 'goalsAgainst', 'Saves']
+    stat_names = ['Shots Against', 'Goals Against', 'Saves']
 
 # Sidebar: player and stat selection
 player_list = df['playerName'].dropna().unique().tolist()
