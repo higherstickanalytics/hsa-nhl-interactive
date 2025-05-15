@@ -24,7 +24,7 @@ if position == 'Skater':
     stat_names = ['Goals', 'Assists', 'Points', 'Shots', 'Plus/Minus']
 else:
     df = goalies_df
-    df["Saves"] = df["savePctg"] * df["shotsAgainst"]
+    df["Saves"] = round(df["savePctg"] * df["shotsAgainst"])
     stats = ['shotsAgainst', 'goalsAgainst', 'Saves']
     stat_names = ['Shots Against', 'Goals Against', 'Saves']
 
