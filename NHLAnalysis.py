@@ -54,7 +54,7 @@ if not df['gameDate'].empty:
 else:
     # Fallback dates if the DataFrame is empty or all dates are invalid
     min_date = pd.to_datetime("2024-10-01")  # Start of 2024-2025 NHL season
-    max_date = pd.to_datetime("2025-05-27")  # Current date as per context
+    max_date = pd.to_datetime("2025-05-27")  # Current date: May 27, 2025
 
 # Convert to datetime.date for st.date_input
 min_date = min_date.to_pydatetime().date() if pd.notna(min_date) else pd.to_datetime("2024-10-01").date()
