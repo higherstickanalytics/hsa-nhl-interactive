@@ -4,16 +4,16 @@ import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
 
 # Load data
-skaters_path = 'data/hockey_data/combined_skaters_hockey_game_logs.csv'
-goalies_path = 'data/hockey_data/combined_goalies_hockey_game_logs.csv'
-schedule_path = 'data/NHL_Schedule.csv'
+data_path = 'nhl_player_game_logs_2024_2025.csv'
+df = pd.read_csv(data_path, parse_dates=['gameDate'], dayfirst=False)
 
-skaters_df = pd.read_csv(skaters_path, parse_dates=['gameDate'], dayfirst=False)
-goalies_df = pd.read_csv(goalies_path, parse_dates=['gameDate'], dayfirst=False)
+# Split into skaters and goalies
+skaters_df = df[df['position'].isin(['C', 'LW', 'RW', 'D'])]  # Centers, Left/Right Wings, Defensemen
+goalies_df = df[df['position'] == 'G']  # Goalies
 
 # App Title
 st.title("Hockey Data Viewer with Pie and Time-Series Charts")
-st.write("Data from [Hockey Reference](https://www.hockey-reference.com/)")
+st.write("Data from NHL API")
 
 # Sidebar: select position
 position = st.sidebar.radio("Select Player Position", ['Skater', 'Goalie'])
@@ -29,7 +29,7 @@ else:
     stat_names = ['Shots Against', 'Goals Against', 'Saves']
 
 # Sidebar: player and stat selection
-player_list = df['playerName'].dropna().unique().tolist()
+player_list = df['full_name'].dropna().unique().tolist()
 selected_player = st.sidebar.selectbox("Select a player:", sorted(player_list))
 selected_stat_display = st.sidebar.selectbox("Select a statistic:", stat_names)
 selected_stat = stats[stat_names.index(selected_stat_display)]
@@ -43,7 +43,7 @@ end_date = pd.to_datetime(st.sidebar.date_input("End Date", max_value=max_date, 
 
 # Filter data
 df = df[(df['gameDate'] >= start_date) & (df['gameDate'] <= end_date)]
-player_df = df[df['playerName'] == selected_player]
+player_df = df[df['full_name'] == selected_player]
 player_df[selected_stat] = pd.to_numeric(player_df[selected_stat], errors='coerce')
 player_df = player_df.dropna(subset=[selected_stat])
 
@@ -135,4 +135,4 @@ if not player_df.empty:
 
     st.write(f"Games at or above threshold: {count_above}/{len(data)} ({count_above / len(data):.2%})")
 else:
-    st.warning("No data available for the selected player and date range.")
+    st.write("No data available for the selected player and date range.")
