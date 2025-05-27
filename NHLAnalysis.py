@@ -36,7 +36,7 @@ goalies_df = df[df['position'] == 'G']  # Goalies
 # Debug: After splitting
 st.write("Skaters DataFrame shape:", skaters_df.shape)
 st.write("Goalies DataFrame shape:", goalies_df.shape)
-st.write智慧: If unexpected values in position column, show unique values
+# Debug: If unexpected values in position column, show unique values
 st.write("Unique position values:", df['position'].unique().tolist())
 
 # App Title
