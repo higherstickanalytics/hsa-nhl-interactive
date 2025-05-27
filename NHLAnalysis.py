@@ -2,42 +2,14 @@ import streamlit as st
 import pandas as pd
 import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
-import os
-
-# Debug: Show current working directory
-st.write(f"Current working directory: {os.getcwd()}")
 
 # Load data
 data_path = 'data/hockey_data/nhl_player_game_logs_2024_2025.csv'
-try:
-    df = pd.read_csv(data_path, parse_dates=['gameDate'], dayfirst=False)
-except FileNotFoundError:
-    st.error(f"Could not find the file: {data_path}. Please ensure the file is in the correct directory ('data/hockey_data/') and the path is correct.")
-    st.stop()
+df = pd.read_csv(data_path, parse_dates=['gameDate'], dayfirst=False)
 
-# Debug: Inspect the raw DataFrame
-st.write("Raw DataFrame shape:", df.shape)
-st.write("Columns in DataFrame:", df.columns.tolist())
-st.write("First few rows of raw DataFrame:", df.head())
-
-# Clean the gameDate column: Drop rows with invalid dates
-df['gameDate'] = pd.to_datetime(df['gameDate'], errors='coerce')
-df = df.dropna(subset=['gameDate'])  # Remove rows where gameDate is NaT
-
-# Debug: After cleaning gameDate
-st.write("DataFrame shape after cleaning gameDate:", df.shape)
-st.write("First few gameDate values:", df['gameDate'].head())
-st.write("Number of rows with NaT in gameDate:", df['gameDate'].isna().sum())
-
-# Split into skaters and goalies
+# Split into skaters and goalies based on position
 skaters_df = df[df['position'].isin(['C', 'LW', 'RW', 'D'])]  # Centers, Left/Right Wings, Defensemen
 goalies_df = df[df['position'] == 'G']  # Goalies
-
-# Debug: After splitting
-st.write("Skaters DataFrame shape:", skaters_df.shape)
-st.write("Goalies DataFrame shape:", goalies_df.shape)
-# Debug: If unexpected values in position column, show unique values
-st.write("Unique position values:", df['position'].unique().tolist())
 
 # App Title
 st.title("Hockey Data Viewer with Pie and Time-Series Charts")
@@ -56,54 +28,24 @@ else:
     stats = ['shotsAgainst', 'goalsAgainst', 'Saves']
     stat_names = ['Shots Against', 'Goals Against', 'Saves']
 
-# Debug: After position selection
-st.write(f"DataFrame shape after selecting {position}:", df.shape)
-
 # Sidebar: player and stat selection
 player_list = df['full_name'].dropna().unique().tolist()
-st.write("Number of unique players:", len(player_list))
-st.write("First few player names:", player_list[:5] if player_list else "No players found")
-
-if not player_list:
-    st.error("No players available to select. Check if the 'full_name' column exists and contains valid data.")
-    st.stop()
-
 selected_player = st.sidebar.selectbox("Select a player:", sorted(player_list))
 selected_stat_display = st.sidebar.selectbox("Select a statistic:", stat_names)
 selected_stat = stats[stat_names.index(selected_stat_display)]
 
 # Sidebar: date filter
-# Ensure min_date and max_date are valid
-if not df['gameDate'].empty:
-    min_date = df['gameDate'].min()
-    max_date = df['gameDate'].max()
-else:
-    # Fallback dates if the DataFrame is empty or all dates are invalid
-    min_date = pd.to_datetime("2024-10-01")  # Start of 2024-2025 NHL season
-    max_date = pd.to_datetime("2025-05-27")  # Current date: May 27, 2025
-
-# Convert to datetime.date for st.date_input
-min_date = min_date.to_pydatetime().date() if pd.notna(min_date) else pd.to_datetime("2024-10-01").date()
-max_date = max_date.to_pydatetime().date() if pd.notna(max_date) else pd.to_datetime("2025-05-27").date()
-
-# Debug: Date range
-st.write("Min date:", min_date)
-st.write("Max date:", max_date)
-
-# Use fallback if min_date or max_date is still invalid
-start_date = pd.to_datetime(st.sidebar.date_input("Start Date", min_value=min_date, max_value=max_date, value=min_date)).date()
-end_date = pd.to_datetime(st.sidebar.date_input("End Date", min_value=min_date, max_value=max_date, value=max_date)).date()
+df['gameDate'] = pd.to_datetime(df['gameDate'], errors='coerce')
+min_date = df['gameDate'].min()
+max_date = df['gameDate'].max()
+start_date = pd.to_datetime(st.sidebar.date_input("Start Date", min_value=min_date, value=min_date))
+end_date = pd.to_datetime(st.sidebar.date_input("End Date", max_value=max_date, value=max_date))
 
 # Filter data
-df = df[(df['gameDate'] >= pd.to_datetime(start_date)) & (df['gameDate'] <= pd.to_datetime(end_date))]
+df = df[(df['gameDate'] >= start_date) & (df['gameDate'] <= end_date)]
 player_df = df[df['full_name'] == selected_player]
 player_df[selected_stat] = pd.to_numeric(player_df[selected_stat], errors='coerce')
 player_df = player_df.dropna(subset=[selected_stat])
-
-# Debug: After filtering
-st.write("DataFrame shape after date filter:", df.shape)
-st.write("Player DataFrame shape:", player_df.shape)
-st.write("First few rows of player DataFrame:", player_df.head())
 
 # Histogram threshold
 if not player_df.empty:
@@ -193,4 +135,4 @@ if not player_df.empty:
 
     st.write(f"Games at or above threshold: {count_above}/{len(data)} ({count_above / len(data):.2%})")
 else:
-    st.write("No data available for the selected player and date range.")
+    st.warning("No data available for the selected player and date range.")
