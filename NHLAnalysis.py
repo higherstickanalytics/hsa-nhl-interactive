@@ -101,7 +101,7 @@ if not player_df.empty:
 
     fig1, ax1 = plt.subplots()
     wedges, texts, autotexts = ax1.pie(
-        sizes, labels=labels, autopct='%1.1f%%', start modaangle=140,
+        sizes, labels=labels, autopct='%1.1f%%', startangle=140,
         colors=colors, textprops={'fontsize': 10}
     )
     ax1.axis('equal')
