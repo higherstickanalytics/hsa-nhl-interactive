@@ -5,7 +5,15 @@ import matplotlib.dates as mdates
 
 # Load data
 data_path = 'data/hockey_data/nhl_player_game_logs_2024_2025.csv'
-df = pd.read_csv(data_path, parse_dates=['gameDate'], dayfirst=False)
+try:
+    df = pd.read_csv(data_path, parse_dates=['gameDate'], dayfirst=False)
+except FileNotFoundError:
+    st.error(f"Could not find the file: {data_path}. Please ensure the file is in the correct directory ('data/hockey_data/') and the path is correct.")
+    st.stop()
+
+# Clean the gameDate column to handle NaT values
+df['gameDate'] = pd.to_datetime(df['gameDate'], errors='coerce')
+df = df.dropna(subset=['gameDate'])  # Remove rows where gameDate is NaT
 
 # Split into skaters and goalies based on position
 skaters_df = df[df['position'].isin(['C', 'LW', 'RW', 'D'])]  # Centers, Left/Right Wings, Defensemen
@@ -29,17 +37,36 @@ else:
     stat_names = ['Shots Against', 'Goals Against', 'Saves']
 
 # Sidebar: player and stat selection
+# Check if full_name column exists and has data
+if 'full_name' not in df.columns:
+    st.error("The 'full_name' column is missing from the dataset. Please check your CSV file.")
+    st.stop()
+
 player_list = df['full_name'].dropna().unique().tolist()
+if not player_list:
+    st.error("No players found in the 'full_name' column. Please ensure the column contains valid player names.")
+    st.stop()
+
 selected_player = st.sidebar.selectbox("Select a player:", sorted(player_list))
 selected_stat_display = st.sidebar.selectbox("Select a statistic:", stat_names)
 selected_stat = stats[stat_names.index(selected_stat_display)]
 
 # Sidebar: date filter
-df['gameDate'] = pd.to_datetime(df['gameDate'], errors='coerce')
-min_date = df['gameDate'].min()
-max_date = df['gameDate'].max()
-start_date = pd.to_datetime(st.sidebar.date_input("Start Date", min_value=min_date, value=min_date))
-end_date = pd.to_datetime(st.sidebar.date_input("End Date", max_value=max_date, value=max_date))
+# Ensure min_date and max_date are valid
+if not df['gameDate'].empty:
+    min_date = df['gameDate'].min()
+    max_date = df['gameDate'].max()
+else:
+    # Fallback dates if the DataFrame is empty or all dates are invalid
+    min_date = pd.to_datetime("2024-10-01")  # Start of 2024-2025 NHL season
+    max_date = pd.to_datetime("2025-05-27")  # Current date: May 27, 2025
+
+# Convert to datetime.date for st.date_input
+min_date = min_date.to_pydatetime().date() if pd.notna(min_date) else pd.to_datetime("2024-10-01").date()
+max_date = max_date.to_pydatetime().date() if pd.notna(max_date) else pd.to_datetime("2025-05-27").date()
+
+start_date = pd.to_datetime(st.sidebar.date_input("Start Date", min_value=min_date, max_value=max_date, value=min_date))
+end_date = pd.to_datetime(st.sidebar.date_input("End Date", min_value=min_date, max_value=max_date, value=max_date))
 
 # Filter data
 df = df[(df['gameDate'] >= start_date) & (df['gameDate'] <= end_date)]
@@ -74,7 +101,7 @@ if not player_df.empty:
 
     fig1, ax1 = plt.subplots()
     wedges, texts, autotexts = ax1.pie(
-        sizes, labels=labels, autopct='%1.1f%%', startangle=140,
+        sizes, labels=labels, autopct='%1.1f%%', start modaangle=140,
         colors=colors, textprops={'fontsize': 10}
     )
     ax1.axis('equal')
