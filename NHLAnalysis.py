@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
 
 # Load data
-data_path = 'nhl_player_game_logs_2024_2025.csv'
+data_path = 'data/hockey_data/nhl_player_game_logs_2024_2025.csv'
 df = pd.read_csv(data_path, parse_dates=['gameDate'], dayfirst=False)
 
 # Split into skaters and goalies
