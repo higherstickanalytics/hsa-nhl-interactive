@@ -2,17 +2,22 @@ import streamlit as st
 import pandas as pd
 import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
+import numpy as np
 
-# Load data
-skaters_path = 'data/hockey_data/combined_skaters_hockey_game_logs.csv'
-goalies_path = 'data/hockey_data/combined_goalies_hockey_game_logs.csv'
-schedule_path = 'data/NHL_Schedule.csv'
+# Load combined data (skaters + goalies)
+data_path = 'data/hockey_data/nhl_player_game_logs_2024_2025.csv'
+df = pd.read_csv(data_path, parse_dates=['gameDate'], dayfirst=False)
 
-skaters_df = pd.read_csv(skaters_path, parse_dates=['gameDate'], dayfirst=False)
-goalies_df = pd.read_csv(goalies_path, parse_dates=['gameDate'], dayfirst=False)
+# Identify goalies vs skaters by checking if any goalie-specific stat columns are non-NaN
+goalie_cols = ['gamesStarted', 'decision', 'shotsAgainst', 'goalsAgainst', 'savePctg', 'shutouts']
+# Create mask for goalie rows (if any goalie stat is not NaN)
+goalie_mask = df[goalie_cols].notna().any(axis=1)
+
+goalies_df = df[goalie_mask].copy()
+skaters_df = df[~goalie_mask].copy()
 
 # App Title
-st.title("Hockey Data Viewer with Pie and Time-Series Charts")
+st.title("Hockey Data Viewer with Pie and Time-Series Charts (2024-2025 Season)")
 st.write("Data from [Hockey Reference](https://www.hockey-reference.com/)")
 
 # Sidebar: select position
@@ -24,12 +29,13 @@ if position == 'Skater':
     stat_names = ['Goals', 'Assists', 'Points', 'Shots', 'Plus/Minus']
 else:
     df = goalies_df
-    df["Saves"] = round(df["savePctg"] * df["shotsAgainst"])
+    # Calculate Saves as rounded product of savePctg and shotsAgainst (handle NaNs safely)
+    df['Saves'] = (df['savePctg'] * df['shotsAgainst']).round()
     stats = ['shotsAgainst', 'goalsAgainst', 'Saves']
     stat_names = ['Shots Against', 'Goals Against', 'Saves']
 
 # Sidebar: player and stat selection
-player_list = df['playerName'].dropna().unique().tolist()
+player_list = df['full_name'].dropna().unique().tolist()  # use 'full_name' column for player name
 selected_player = st.sidebar.selectbox("Select a player:", sorted(player_list))
 selected_stat_display = st.sidebar.selectbox("Select a statistic:", stat_names)
 selected_stat = stats[stat_names.index(selected_stat_display)]
@@ -41,13 +47,13 @@ max_date = df['gameDate'].max()
 start_date = pd.to_datetime(st.sidebar.date_input("Start Date", min_value=min_date, value=min_date))
 end_date = pd.to_datetime(st.sidebar.date_input("End Date", max_value=max_date, value=max_date))
 
-# Filter data
+# Filter data by player and date range
 df = df[(df['gameDate'] >= start_date) & (df['gameDate'] <= end_date)]
-player_df = df[df['playerName'] == selected_player]
+player_df = df[df['full_name'] == selected_player].copy()
 player_df[selected_stat] = pd.to_numeric(player_df[selected_stat], errors='coerce')
 player_df = player_df.dropna(subset=[selected_stat])
 
-# Histogram threshold
+# Histogram threshold and charts
 if not player_df.empty:
     max_val = player_df[selected_stat].max()
     default_thresh = player_df[selected_stat].median()
