@@ -2,10 +2,22 @@ import streamlit as st
 import pandas as pd
 import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
+import os
+
+# Debug: Show current working directory
+st.write(f"Current working directory: {os.getcwd()}")
 
 # Load data
 data_path = 'data/hockey_data/nhl_player_game_logs_2024_2025.csv'
-df = pd.read_csv(data_path, parse_dates=['gameDate'], dayfirst=False)
+try:
+    df = pd.read_csv(data_path, parse_dates=['gameDate'], dayfirst=False)
+except FileNotFoundError:
+    st.error(f"Could not find the file: {data_path}. Please ensure the file is in the correct directory ('data/hockey_data/') and the path is correct.")
+    st.stop()
+
+# Clean the gameDate column: Drop rows with invalid dates
+df['gameDate'] = pd.to_datetime(df['gameDate'], errors='coerce')
+df = df.dropna(subset=['gameDate'])  # Remove rows where gameDate is NaT
 
 # Split into skaters and goalies
 skaters_df = df[df['position'].isin(['C', 'LW', 'RW', 'D'])]  # Centers, Left/Right Wings, Defensemen
@@ -35,14 +47,25 @@ selected_stat_display = st.sidebar.selectbox("Select a statistic:", stat_names)
 selected_stat = stats[stat_names.index(selected_stat_display)]
 
 # Sidebar: date filter
-df['gameDate'] = pd.to_datetime(df['gameDate'], errors='coerce')
-min_date = df['gameDate'].min()
-max_date = df['gameDate'].max()
-start_date = pd.to_datetime(st.sidebar.date_input("Start Date", min_value=min_date, value=min_date))
-end_date = pd.to_datetime(st.sidebar.date_input("End Date", max_value=max_date, value=max_date))
+# Ensure min_date and max_date are valid
+if not df['gameDate'].empty:
+    min_date = df['gameDate'].min()
+    max_date = df['gameDate'].max()
+else:
+    # Fallback dates if the DataFrame is empty or all dates are invalid
+    min_date = pd.to_datetime("2024-10-01")  # Start of 2024-2025 NHL season
+    max_date = pd.to_datetime("2025-05-27")  # Current date as per context
+
+# Convert to datetime.date for st.date_input
+min_date = min_date.to_pydatetime().date() if pd.notna(min_date) else pd.to_datetime("2024-10-01").date()
+max_date = max_date.to_pydatetime().date() if pd.notna(max_date) else pd.to_datetime("2025-05-27").date()
+
+# Use fallback if min_date or max_date is still invalid
+start_date = pd.to_datetime(st.sidebar.date_input("Start Date", min_value=min_date, max_value=max_date, value=min_date)).date()
+end_date = pd.to_datetime(st.sidebar.date_input("End Date", min_value=min_date, max_value=max_date, value=max_date)).date()
 
 # Filter data
-df = df[(df['gameDate'] >= start_date) & (df['gameDate'] <= end_date)]
+df = df[(df['gameDate'] >= pd.to_datetime(start_date)) & (df['gameDate'] <= pd.to_datetime(end_date))]
 player_df = df[df['full_name'] == selected_player]
 player_df[selected_stat] = pd.to_numeric(player_df[selected_stat], errors='coerce')
 player_df = player_df.dropna(subset=[selected_stat])
